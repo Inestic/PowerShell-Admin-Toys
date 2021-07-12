@@ -30,10 +30,6 @@
 
 #Requires -Version 5.1
 
-#region Embedded Resource
-
-#endregion Embedded Resource
-
 #region Variables
 #region XAML markup
 [xml]$Xaml = '<Window
@@ -111,8 +107,10 @@
         </Style>
         <Style TargetType="{x:Type DataGrid}">
             <Setter Property="Grid.Row" Value="2" />
+			<Setter Property="HorizontalAlignment" Value="Stretch"/>
+			<Setter Property="VerticalAlignment" Value="Stretch"/>
             <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
-            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Disabled"/>			
             <Setter Property="AutoGenerateColumns" Value="True"/>
             <Setter Property="IsReadOnly" Value="True"/>
             <Setter Property="GridLinesVisibility" Value="All"/>
@@ -120,7 +118,7 @@
             <Setter Property="RowHeaderWidth" Value="0"/>
             <Setter Property="HeadersVisibility" Value="Column"/>
             <Setter Property="ColumnWidth" Value="*"/>
-            <Setter Property="Visibility" Value="Collapsed"/>            
+            <Setter Property="Visibility" Value="Collapsed"/>       
         </Style>
         <Style TargetType="{x:Type StackPanel}" x:Key="TextBoxPanel">
             <Setter Property="Orientation" Value="Horizontal" />
@@ -238,7 +236,8 @@
                     <TextBox Name="StartDateTextBox"
                              Grid.Column="1"
                              MaxLength="19"
-                             TabIndex="1" />
+                             TabIndex="1"
+							 Tag="Start" />
                 </Grid>
             </StackPanel>
             <StackPanel Style="{StaticResource TextBoxPanel}">
@@ -255,7 +254,8 @@
                     <TextBox Name="EndDateTextBox"
                              Grid.Column="1"
                              MaxLength="19"
-                             TabIndex="2" />
+                             TabIndex="2"
+							 Tag="End" />
                 </Grid>
             </StackPanel>
             <StackPanel Style="{StaticResource TextBoxPanel}">
@@ -271,7 +271,8 @@
 
                     <TextBox Name="SenderTextBox"
                              Grid.Column="1"
-                             TabIndex="3" />
+                             TabIndex="3"
+							 Tag="Sender" />
                 </Grid>
             </StackPanel>
             <StackPanel Style="{StaticResource TextBoxPanel}">
@@ -287,7 +288,8 @@
 
                     <TextBox Name="RecipientTextBox"
                              Grid.Column="1"
-                             TabIndex="4" />
+                             TabIndex="4"
+							 Tag="Recipients" />
                 </Grid>
             </StackPanel>
             <StackPanel Style="{StaticResource TextBoxPanel}">
@@ -303,7 +305,8 @@
 
                     <TextBox Name="SubjectTextBox"
                              Grid.Column="1"
-                             TabIndex="5" />
+                             TabIndex="5"
+							 Tag="MessageSubject" />
                 </Grid>
             </StackPanel>
             <StackPanel Style="{StaticResource TextBoxPanel}">
@@ -320,7 +323,8 @@
 
                     <ComboBox Name="EventIdTextBox"
                               Grid.Column="1"
-                              TabIndex="6">
+                              TabIndex="6" 
+							  Tag="EventId" >
                     </ComboBox>
                 </Grid>
             </StackPanel>
@@ -354,10 +358,10 @@
 $MailEventId = [ordered]@{
 	"All events" = "ANY"
 	"DEFER: message delivery was delayed" = "DEFER"
-	"DELIVER:	message was delivered" = "DELIVER"
+	"DELIVER: message was delivered" = "DELIVER"
 	"DROP: message was dropped" = "DROP"
 	"DSN: delivery status notification created" = "DSN"
-	"RECEIVE:	message was received to SMTP" = "RECEIVE"
+	"RECEIVE: message was received to SMTP" = "RECEIVE"
 	"SEND: A message was sent by SMTP" = "SEND"
 }
 $GitHubPage = "https://github.com/Inestic/PowerShell-Admin-Toys"
@@ -417,26 +421,46 @@ function Get-ExchangeSnapin {
 
 function Start-MessageTracking {
 
-	[String]$TrackingCommand = [String]::Format("Get-MessageTrackingLog -Start {0} -End {1}", $StartDateTextBox.Text, $EndDateTextBox.Text)
-	$SenderTextBox, $RecipientTextBox, $SubjectTextBox
+	[String]$TrackingCommand = [String]::Format("Get-MessageTrackingLog -Start ""{0}"" -End ""{1}""", $StartDateTextBox.Text, $EndDateTextBox.Text)
+	$SenderTextBox, $RecipientTextBox, $SubjectTextBox | ForEach-Object -Process {
+		if ($_.Text -ne [string]::Empty) { $TrackingCommand += " -{0} ""{1}"""-f $_.Tag, $_.Text }
+	}
 	
+	if ($EventIdTextBox.SelectedIndex -ne 0) { $TrackingCommand += " -{0} {1}"-f $EventIdTextBox.Tag, $MailEventId[$EventIdTextBox.SelectedIndex] }
+	$TrackedMessage = New-Object System.Collections.ArrayList($null)	
+	Get-ExchangeServer | ForEach-Object -Process {
+		$StatusBarTextBlock.Text = "Started tracking mail"
+		[String]$ServerCommand = '{0} -Server "{1}" -ResultSize Unlimited'-f $TrackingCommand, $_.Name
+		Invoke-Expression -Command $ServerCommand | ForEach-Object -Process {
+			$Property = [ordered]@{}
+			$Property.TimeStamp = $_.Timestamp
+			$Property.Server = $_.ServerHostname.ToLower()
+			$Property.EventId = $_.EventId
+			$Property.Sender = $_.Sender.ToLower()
+			$Property.Recipients = [string]::join(",",$_.recipients).ToLower()
+			$Property.Subject = $_.MessageSubject			
+			$Property.RecipientCount = $_.RecipientCount
+			[Void]$TrackedMessage.Add((New-Object -TypeName PSObject -Property $Property))
+		}
+	}
 	
-	#if ([string]::Empty -ne $SenderTextBox.Text) {$TrackingCommand += " -Sender ""{0}"""-f $SenderTextBox.Text}
+	$StatusBarTextBlock.Text = "Found: {0}"-f $TrackedMessage.Count
+	if ($TrackedMessage.Count -gt 0)
+	{
+		$FoundMailDataGrid.ItemsSource = $TrackedMessage | Sort-Object -Property Timestamp -Descending
+		$FoundMailDataGrid.Visibility = "Visible"
+	}
 	
-	
-
 }
 #endregion Functions
 
 Add-Type -AssemblyName PresentationFramework
 
 $Gui = [Windows.Markup.XamlReader]::Load((New-Object -TypeName System.Xml.XmlNodeReader -ArgumentList $Xaml))
-$Xaml.SelectNodes("//*[@*[contains(translate(name(.),'n','N'),'Name')]]") | ForEach-Object -Process {
-	Set-Variable -Name ($_.Name) -Value $Gui.FindName($_.Name)
-}
-
-$StartDateTextBox.Text = [DateTime]::Today
-$EndDateTextBox.Text = [DateTime]::Today.AddSeconds(-1)
+$Xaml.SelectNodes("//*[@*[contains(translate(name(.),'n','N'),'Name')]]") | ForEach-Object -Process { Set-Variable -Name ($_.Name) -Value $Gui.FindName($_.Name) }
+$Today = [DateTime]::Today
+$StartDateTextBox.Text = "{0} {1}"-f $Today.ToShortDateString(), $Today.ToLongTimeString()
+$EndDateTextBox.Text = "{0} {1}"-f $Today.ToShortDateString(), $Today.AddDays(1).AddSeconds(-1).ToLongTimeString()
 $EventIdTextBox.ItemsSource = $MailEventId.Keys
 $EventIdTextBox.SelectedItem = $EventIdTextBox.ItemsSource | Select-Object -First 1
 $Window.add_Loaded({Get-ExchangeSnapin})
