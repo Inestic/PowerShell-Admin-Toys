@@ -452,6 +452,18 @@ function Start-MessageTracking {
 	}
 	
 }
+
+function Export-MessageData {
+	$SaveFileDialog = New-Object Microsoft.Win32.SaveFileDialog($null)
+	$SaveFileDialog.FileName = "TrackedMessage_{0}"-f [DateTime]::Now.ToShortDateString()
+	$SaveFileDialog.DefaultExt = ".csv"
+	$SaveFileDialog.Filter = "Comma separated values (.csv)|*.csv"
+	
+	if ($SaveFileDialog.ShowDialog())
+	{
+		$FoundMailDataGrid.Items | ConvertTo-Csv -Delimiter "*" -NoTypeInformation | Out-File -FilePath $SaveFileDialog.FileName -Encoding UTF8 -Confirm:$false -Force		
+	}	
+}
 #endregion Functions
 
 Add-Type -AssemblyName PresentationFramework
@@ -466,4 +478,5 @@ $EventIdTextBox.SelectedItem = $EventIdTextBox.ItemsSource | Select-Object -Firs
 $Window.add_Loaded({Get-ExchangeSnapin})
 $GitHubLink.add_MouseLeftButtonDown({Open-Url -Url $GitHubPage})
 $SearchButton.add_Click({Start-MessageTracking})
+$ExportButton.add_Click({Export-MessageData})
 $Gui.ShowDialog() | Out-Null
