@@ -48,8 +48,8 @@
     Background="#F1F1F1" Foreground="#262626"
     SnapsToDevicePixels="True">
     <Window.Resources>
-        <Storyboard x:Key="HasErrorAnimation"
-                    Name="HasErrorAnimation">
+        <Storyboard x:Key="FlashAnimation"
+                    Name="FlashAnimation">
             <ColorAnimation Storyboard.TargetName="StatusBarGrid"
                             Storyboard.TargetProperty="(Grid.Background).(SolidColorBrush.Color)"
                             From="#eb3b00"
@@ -384,6 +384,11 @@ function Open-Url {
 	
 }
 
+function Show-Animation {
+	
+	$FlashAnimation.Begin()	
+}
+
 function Show-Error {
 	
 	[CmdletBinding()]
@@ -395,11 +400,8 @@ function Show-Error {
 			$SequentialNumber
 		)
 		
-	[String[]] $ErrorsDescriptions = "Requires powershell module: Exchange Management Shell"
-	$AnimationName = "HasErrorAnimation"
-	$StatusBarTextBlock.Text = $ErrorsDescriptions[$SequentialNumber]
-	$Animation = $Window.FindResource("$AnimationName")
-	$Animation.Begin()
+	[String[]] $ErrorsDescriptions = "Requires powershell module: Exchange Management Shell"	
+	$StatusBarTextBlock.Text = $ErrorsDescriptions[$SequentialNumber]		
 }
 
 function Get-ExchangeSnapin {	
@@ -416,11 +418,13 @@ function Get-ExchangeSnapin {
 	{
 		$SearchButton.IsEnabled = $false
     	Show-Error -SequentialNumber 0
+		Show-Animation
 	}
 }
 
 function Start-MessageTracking {
 
+	$StatusBarTextBlock.Text = "Started tracking mail"
 	[String]$TrackingCommand = [String]::Format("Get-MessageTrackingLog -Start ""{0}"" -End ""{1}""", $StartDateTextBox.Text, $EndDateTextBox.Text)
 	$SenderTextBox, $RecipientTextBox, $SubjectTextBox | ForEach-Object -Process {
 		if ($_.Text -ne [string]::Empty) { $TrackingCommand += " -{0} ""{1}"""-f $_.Tag, $_.Text }
@@ -428,8 +432,7 @@ function Start-MessageTracking {
 	
 	if ($EventIdTextBox.SelectedIndex -ne 0) { $TrackingCommand += " -{0} {1}"-f $EventIdTextBox.Tag, $MailEventId[$EventIdTextBox.SelectedIndex] }
 	$TrackedMessage = New-Object System.Collections.ArrayList($null)	
-	Get-ExchangeServer | ForEach-Object -Process {
-		$StatusBarTextBlock.Text = "Started tracking mail"
+	Get-ExchangeServer | ForEach-Object -Process {		
 		[String]$ServerCommand = '{0} -Server "{1}" -ResultSize Unlimited'-f $TrackingCommand, $_.Name
 		Invoke-Expression -Command $ServerCommand | ForEach-Object -Process {
 			$Property = [ordered]@{}
@@ -442,15 +445,16 @@ function Start-MessageTracking {
 			$Property.RecipientCount = $_.RecipientCount
 			[Void]$TrackedMessage.Add((New-Object -TypeName PSObject -Property $Property))
 		}
-	}
+	}	
 	
-	$StatusBarTextBlock.Text = "Found: {0}"-f $TrackedMessage.Count
 	if ($TrackedMessage.Count -gt 0)
 	{
 		$FoundMailDataGrid.ItemsSource = $TrackedMessage | Sort-Object -Property Timestamp -Descending
-		$FoundMailDataGrid.Visibility = "Visible"
+		$FoundMailDataGrid.Visibility = "Visible"		
 	}
 	
+	$StatusBarTextBlock.Text = "Found: {0}"-f $TrackedMessage.Count
+	Show-Animation	
 }
 
 function Export-MessageData {
