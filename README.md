@@ -11,6 +11,8 @@
   <summary>Exchange-2016-MessageTracking-Gui.ps1</summary>
   
   ![Image](https://raw.githubusercontent.com/Inestic/scrn/main/screenshots/exchange-2016-message-tracking-gui-1.png)
+  
+  </details>
 
-## Download
+## :zap:Download
 ### [Download latest release](https://github.com/Inestic/PowerShell-Admin-Toys/releases/latest "Download latest release")
