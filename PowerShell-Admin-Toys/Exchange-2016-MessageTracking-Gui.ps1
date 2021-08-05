@@ -13,7 +13,7 @@
 
 	.NOTES
 	Designed for Microsoft Exchange 2016
-	Tested on Microsoft Exchange 2016 Version 15.1 (Build 2242.4)
+	Tested on Microsoft Exchange 2016 version 15.1 build 2242.4
 
 	.LINK
 	https://github.com/Inestic/PowerShell-Admin-Toys
@@ -29,7 +29,6 @@
 
 #Requires -Version 5.1
 
-#region Variables
 #region XAML markup
 [xml]$Xaml = '<Window
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -354,6 +353,8 @@
 	</Grid>
 </Window>'
 #endregion XAML markup
+
+#region Variables
 $MailEventId = [ordered]@{
 	"All events" = "ANY"
 	"DEFER: message delivery was delayed" = "DEFER"
@@ -363,7 +364,6 @@ $MailEventId = [ordered]@{
 	"RECEIVE: message was received to SMTP" = "RECEIVE"
 	"SEND: A message was sent by SMTP" = "SEND"
 }
-$GitHubPage = "https://github.com/Inestic/PowerShell-Admin-Toys"
 $ExchangeSnapin = "Microsoft.Exchange.Management.PowerShell.SnapIn"
 #endregion Variables
 
@@ -420,8 +420,7 @@ function Get-ExchangeSnapin
 }
 
 function Start-MessageTracking
-{
-	$StatusBarTextBlock.Text = "Started tracking mail"
+{	
 	[String]$TrackingCommand = [String]::Format("Get-MessageTrackingLog -Start `"{0}`" -End `"{1}`"", $StartDateTextBox.Text, $EndDateTextBox.Text)
 	$SenderTextBox, $RecipientTextBox, $SubjectTextBox | ForEach-Object -Process {
 		if ($_.Text -ne [string]::Empty)
@@ -487,7 +486,7 @@ $EndDateTextBox.Text         = "{0} {1}"-f $Today.ToShortDateString(), $Today.Ad
 $EventIdTextBox.ItemsSource  = $MailEventId.Keys
 $EventIdTextBox.SelectedItem = $EventIdTextBox.ItemsSource | Select-Object -First 1
 $Window.Add_Loaded({Get-ExchangeSnapin})
-$GitHubLink.Add_MouseLeftButtonDown({Open-Url -Url $GitHubPage})
+$GitHubLink.Add_MouseLeftButtonDown({Open-Url -Url $GitHubLink.Text})
 $SearchButton.Add_Click({Start-MessageTracking})
 $ExportButton.Add_Click({Export-MessageData})
 $Gui.ShowDialog() | Out-Null
